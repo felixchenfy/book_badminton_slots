@@ -7,6 +7,8 @@ from selenium.webdriver.support import expected_conditions as EC
 from selenium.common.exceptions import TimeoutException, NoSuchElementException
 from datetime import datetime, timedelta
 import time
+from bs4 import BeautifulSoup
+
 
 # --------------------
 
@@ -22,12 +24,8 @@ password = args.password
 # --- Input Variables
 
 # Desired days and times
-# booking_schedule = [('Tuesday', '7:00 PM'),
-#                     ('Thursday', '7:00 PM')]
-# booking_schedule = [('Friday', '10:00 PM'),
-#                     ('Saturday', '10:00 PM')]
-booking_schedule = [('Friday', '9:00 PM'),
-                    ('Saturday', '9:00 AM')]
+booking_schedule = [('Tuesday', '7:00 PM'),
+                    ('Thursday', '7:00 PM')]
 
 WAIT_SECONDS_BEFORE_RETRY = 1
 MAX_WAIT_SECONDS_FOR_PAGE_TO_LOAD = 3
@@ -104,15 +102,29 @@ def get_url_for_day(day):
     return f'{BASE_URL}{target_date.strftime("%Y-%m-%d")}'
 
 
-def check_already_registered():
-    return "Reserved" in driver.page_source
+def is_slot_booked(time_slot_text):
+    # Convert the page source into a BeautifulSoup object for easier parsing
+    soup = BeautifulSoup(driver.page_source, 'html.parser')
+
+    # Find all the time slot rows in the table
+    slot_rows = soup.find_all('tr', class_='item')
+
+    for row in slot_rows:
+        # Extract time and reservation status from each row
+        time = row.find('div', class_='clickable').text.strip()
+        reservation_status = row.find_all('td')[-1].text.strip()
+
+        # Check if the time matches and if it's reserved
+        if time == time_slot_text and "Reserved" in reservation_status:
+            return True
+
+    return False
 
 
 def book_court(day, time_slot_text):
     '''
     Return 1 if succeeded.
     Return -1 if failed and need retry.
-    Return 0 if you already booked a court on this day and shouldn't book again.
     '''
     day_url = get_url_for_day(day)
     print("")
@@ -121,14 +133,13 @@ def book_court(day, time_slot_text):
     try:
         WebDriverWait(driver, MAX_WAIT_SECONDS_FOR_PAGE_TO_LOAD).until(
             EC.presence_of_element_located((By.XPATH, TIME_SLOT_XPATH)))
-        if check_already_registered():
-            return 0
-
         time_slots = driver.find_elements_by_xpath(TIME_SLOT_XPATH)
         for slot in time_slots:
             if time_slot_text in slot.text:
                 print(f"Attempting to book the time slot for {time_slot_text}")
-                if 'sessionFull' in slot.get_attribute('class'):
+                if is_slot_booked(time_slot_text):
+                    return 0  # Already booked
+                elif 'sessionFull' in slot.get_attribute('class'):
                     print(f"Slots are full.")
                 else:
                     print(f"Slots are not full. Try to click.")
@@ -179,13 +190,12 @@ for num_retries in range(MAX_RETRIES):
     # Iterate over a copy of the list
     for day, time_slot in list(booking_schedule):
         res = book_court(day, time_slot)
-        if res == 1:
-            print(f"Successfully booked for {day} at {time_slot}!")
+        if res >= 0:
+            if res == 1:
+                print(f"Successfully booked for {day} at {time_slot}!")
+            else:
+                print(f"This slot was already booked: {day} at {time_slot}!")
             # Remove successful booking
-            booking_schedule.remove((day, time_slot))
-        elif res == 0:
-            print(f"You already booked a court on {day}."
-                  " You can't book anymore, even if it's a different slot.")
             booking_schedule.remove((day, time_slot))
         elif res == -1:
             print(f"Failed to book for {day} at {time_slot}, will retry.")

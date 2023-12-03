@@ -4,7 +4,7 @@ This script automates booking badminton courts at your local facility using Sele
 
 **Features:**
 
-* Supports booking multiple days and time slots, but excludes days already booked.
+* Supports booking multiple days and time slots.
 * Automatically retries booking if unsuccessful.
 * Logs the booking process for easy tracking.
 
@@ -13,6 +13,9 @@ This script automates booking badminton courts at your local facility using Sele
 * **Firefox browser**
 * **Selenium** (`pip install selenium`)
 * **Geckodriver:** Download the appropriate version from [https://github.com/mozilla/geckodriver/releases](https://github.com/mozilla/geckodriver/releases) and place it in the same directory as the script.
+* **beautifulsoup4** (`pip install beautifulsoup4`)
+
+
 
 **Configuration**:
 
@@ -25,10 +28,8 @@ This script automates booking badminton courts at your local facility using Sele
 Example:
 
 ```python
-booking_schedule = [
-    ('Tuesday', '8:00 PM'),
-    ('Thursday', '8:00 PM'),
-]
+booking_schedule = [('Tuesday', '7:00 PM'),
+                    ('Thursday', '7:00 PM')]
 ```
 
 **Running the script:**
