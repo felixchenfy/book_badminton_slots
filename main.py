@@ -24,12 +24,11 @@ password = args.password
 # --- Input Variables
 
 # Desired days and times
-booking_schedule = [('Tuesday', '7:00 PM'),
-                    ('Thursday', '7:00 PM')]
+booking_schedule = [('Tuesday', '7:00 PM'), ('Thursday', '7:00 PM')]
 
-WAIT_SECONDS_BEFORE_RETRY = 1
-MAX_WAIT_SECONDS_FOR_PAGE_TO_LOAD = 3
-MAX_RETRIES = 1000
+WAIT_SECONDS_BEFORE_RETRY = 0.5
+MAX_WAIT_SECONDS_FOR_PAGE_TO_LOAD = 1.5
+MAX_RETRIES = 1000000
 DEBUG_MODE = False  # Sleep extra 2s before any click.
 
 # --- Constants
