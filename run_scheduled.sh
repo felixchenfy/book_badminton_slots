@@ -1,35 +1,53 @@
 #!/bin/bash
 
+# README:
+# This script calculates the time until a specific day/hour (Seattle timezone),
+# sleeps until then, and runs a Python task (`main.py`) with email credentials.
+# 
+# - **Target Day/Time:** Set by `TARGET_WEEKDAY` (0=Mon, 6=Sun) and `TARGET_HOUR` (24-hour).
+# - **Dependencies:** Python 3, `pytz`.
+# - **Usage:** Make the script executable (`chmod +x script.sh`) and run it: `./script.sh`.
+# - **Note:** Ensure `main.py` exists and `email_and_password.sh` provides `$my_email` and `$my_password`.
+
 # Variables for the target day and time
-TARGET_WEEKDAY=6  # Saturday
-TARGET_HOUR=10    # 10 AM (24-hour format)
+TARGET_WEEKDAY=5  # Saturday (0=Monday, 6=Sunday)
+TARGET_HOUR=10     # 10 AM (24-hour format)
 
 # Function to calculate the number of seconds until the target day and time in Seattle time
 calculate_sleep_duration() {
-    # Use the Python script provided to calculate the sleep duration
-    echo $(python -c "
+    python3 - <<EOF
 import pytz
 from datetime import datetime, timedelta
+import sys
 
 # Current time in Seattle timezone
-seattle_time = datetime.now(pytz.timezone('America/Los_Angeles'))
+seattle_tz = pytz.timezone('America/Los_Angeles')
+seattle_time = datetime.now(seattle_tz)
 
 # Target weekday and hour
+# Python's weekday(): Monday=0, Sunday=6
 target_weekday = $TARGET_WEEKDAY
 target_hour = $TARGET_HOUR
 
 # Calculate days ahead to the target weekday
-days_ahead = (target_weekday - 1 + 7 - seattle_time.weekday()) % 7
+days_ahead = (target_weekday - seattle_time.weekday() + 7) % 7
+
+# If target is today and current time is past target_hour, set to next week
 if days_ahead == 0 and seattle_time.hour >= target_hour:
     days_ahead = 7
 
-# Set target time
+# Calculate target time
 target_time = seattle_time + timedelta(days=days_ahead)
 target_time = target_time.replace(hour=target_hour, minute=0, second=0, microsecond=0)
 
+# Print Seattle time and Target time to stderr for debugging
+print(f"Seattle Time: {seattle_time.strftime('%Y-%m-%d %H:%M:%S %Z')}", file=sys.stderr)
+print(f"Target Time: {target_time.strftime('%Y-%m-%d %H:%M:%S %Z')}", file=sys.stderr)
+
 # Calculate and print the sleep duration in seconds
-print(int((target_time - seattle_time).total_seconds()))
-")
+sleep_duration = int((target_time - seattle_time).total_seconds())
+print(sleep_duration)
+EOF
 }
 
 # Function to convert seconds to hours, minutes, seconds
@@ -43,19 +61,21 @@ convert_seconds() {
 
 # Calculate initial sleep duration
 sleep_duration=$(calculate_sleep_duration)
+
+# Ensure sleep_duration is valid and a number
+if ! [[ "$sleep_duration" =~ ^[0-9]+$ ]]; then
+    echo "Error: Invalid sleep duration calculated."
+    exit 1
+fi
+
 # Convert seconds to hours, minutes, seconds
-formatted_duration=$(convert_seconds $sleep_duration)
+formatted_duration=$(convert_seconds "$sleep_duration")
 echo "Sleeping for another $formatted_duration..."
 
-# Loop until the sleep duration is zero or negative
-while [ $sleep_duration -gt 0 ]; do
+# Loop until the sleep duration is less than or equal to 180 seconds (3 minutes)
+while [ "$sleep_duration" -gt 180 ]; do
+    # Display current Seattle time
     echo "--- Current Seattle time: $(TZ='America/Los_Angeles' date)"
-
-    # Break the loop if sleep duration is less than or equal to 600 seconds
-    if [ $sleep_duration -le 600 ]; then
-        echo "Breaking out of the loop as the remaining time is less than or equal to 600 seconds."
-        break
-    fi
 
     # Sleep for 1 minute
     sleep 60
@@ -63,13 +83,20 @@ while [ $sleep_duration -gt 0 ]; do
     # Recalculate sleep duration
     sleep_duration=$(calculate_sleep_duration)
 
+    # Ensure sleep_duration is valid and a number
+    if ! [[ "$sleep_duration" =~ ^[0-9]+$ ]]; then
+        echo "Error: Invalid sleep duration calculated."
+        exit 1
+    fi
+
     # Convert seconds to hours, minutes, seconds
-    formatted_duration=$(convert_seconds $sleep_duration)
+    formatted_duration=$(convert_seconds "$sleep_duration")
 
     # Print a message with the remaining sleep duration
     echo "Sleeping for another $formatted_duration..."
 done
 
-
-# After the loop ends, run the task
-python3 main.py felixchenfy@gmail.com xxx
+# Execute the scheduled task
+echo "Executing the scheduled task..."
+source email_and_password.sh
+python3 main.py $my_email $my_password

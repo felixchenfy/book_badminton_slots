@@ -1,4 +1,6 @@
 geckodriver
 geckodriver.log
 LICENSE.chromedriver
-my_readme.md
+run_with_sleep.sh
+tmp*
+email_and_password.sh
